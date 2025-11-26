@@ -1,7 +1,8 @@
 "use client";
 
 import { useNextQueryParams } from "@/hooks/useNextQueryParams";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import moment from "moment";
 
 export default function Home() {
   const { initialParams, updateParams } = useNextQueryParams({
@@ -10,7 +11,7 @@ export default function Home() {
   const [result, setResult] = useState<object>();
   const [urls, setUrls] = useState<string>(initialParams.get("urls") || "");
 
-  const handleOnClick = async () => {
+  const goScraping = useCallback(async () => {
     console.log("click");
     setResult({ loading: true });
     const scraped = await fetch("/api/scraper", {
@@ -19,38 +20,36 @@ export default function Home() {
     }).then((r) => r.json());
     console.log(scraped);
     setResult(scraped);
-  };
-
-  const handleOnClickSS = async () => {
-    console.log("ss click");
-    setResult({ loading: true });
-    const scraped = await fetch("/api/scraper", {
-      method: "POST",
-      body: JSON.stringify({ urls }),
-    })
-      .then((res) => res.blob())
-      .then((blob) => {
-        const url = window.URL.createObjectURL(blob);
-
-        // Create an anchor element to initiate the download
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "ss.png";
-        document.body.appendChild(a);
-
-        // Trigger the download
-        a.click();
-
-        // Clean up the URL object
-        window.URL.revokeObjectURL(url);
-      });
-    console.log(scraped);
-  };
+  }, [urls]);
 
   const handleUrlChange = (value: string) => {
     setUrls(value);
     updateParams({ urls: value });
   };
+
+  useEffect(() => {
+    const scrape = async () => {
+      console.log("click");
+      setResult({ loading: true });
+      const scraped = await fetch("/api/scraper", {
+        method: "POST",
+        body: JSON.stringify({ urls }),
+      }).then((r) => r.json());
+      const flattened: Auction[] =
+        Object.values<Auction>(scraped).flat<Auction[]>();
+      const sorted = flattened.sort((a: Auction, b: Auction) =>
+        moment(a.timeStamp).isBefore(moment(b.timeStamp)) ? 1 : -1
+      );
+      console.log(flattened);
+      setResult(sorted);
+    };
+
+    scrape();
+    const intervalId = setInterval(() => {
+      scrape();
+    }, 60000);
+    return () => clearInterval(intervalId);
+  }, [urls]);
 
   return (
     <main className="hero bg-base-200 min-h-screen">
@@ -65,11 +64,8 @@ export default function Home() {
             onChange={(e) => handleUrlChange(e.target.value)}
           ></textarea>
           <p className="mb-6">
-            <button className="btn btn-primary" onClick={handleOnClick}>
+            <button className="btn btn-primary" onClick={goScraping}>
               Get Started
-            </button>
-            <button className="btn btn-primary" onClick={handleOnClickSS}>
-              screenshot
             </button>
           </p>
           {result && (

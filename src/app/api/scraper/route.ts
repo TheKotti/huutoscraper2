@@ -10,14 +10,6 @@ const remoteExecutablePath =
   "https://github.com/Sparticuz/chromium/releases/download/v121.0.0/chromium-v121.0.0-pack.tar";
 let browser;
 
-type Auction = {
-  title: string;
-  url: string;
-  timeStamp: Moment;
-  price: string;
-  category: string;
-};
-
 export async function POST(req: Request) {
   const reqData = await req.json();
   const urls = reqData.urls.split("\n");
@@ -44,7 +36,7 @@ export async function POST(req: Request) {
   });
 
   const res: any = {};
-  const auctions: any = [];
+  const auctions: { [key: string]: Auction[] } = {};
 
   let currentURL;
 
@@ -56,32 +48,25 @@ export async function POST(req: Request) {
 
     if (url.includes("tori.fi")) {
       const data = await getToriData(page, category);
-      auctions.push(...data);
+      auctions[url] = data;
     } else if (url.includes("huuto.net")) {
       const data = await getHuutoData(page, category);
-      auctions.push(...data);
+      auctions[url] = data;
     }
-
-    const pageTitle = await page.title();
-    res[url.slice(10, 20)] = pageTitle;
   }
 
   await browser.close();
 
-  const sorted = auctions.sort((a: Auction, b: Auction) =>
+  /* const sorted = auctions.sort((a: Auction, b: Auction) =>
     a.timeStamp.isBefore(b.timeStamp) ? 1 : -1
-  );
+  ); */
 
-  console.log(sorted);
-  return Response.json({
-    res,
-    auctions: sorted,
-  });
+  return Response.json(auctions);
 }
 
 const getToriTimeStamp = (timeText: string) => {
   const timeNumber = timeText.match(/\d+/)?.[0] || 1;
-  const currentTime: Moment = moment();
+  const currentTime: Moment = moment().add(4, "h");
 
   if (timeText.includes("min")) {
     return currentTime.add(-timeNumber, "minute");
@@ -94,7 +79,6 @@ const getToriTimeStamp = (timeText: string) => {
 
 async function getHuutoData(page: Page, category: string): Promise<Auction[]> {
   const itemList = await page.$$(".item-card-container");
-  console.log(itemList.length);
 
   const filterResults = await Promise.all(
     itemList.map(async (x) => {
@@ -145,7 +129,7 @@ async function getToriData(page: Page, category: string): Promise<Auction[]> {
   const filterResults = await Promise.all(
     itemList.map(async (x) => {
       const timeString = await x.$eval(
-        ".s-text-subtle > span:nth-child(2)",
+        ".s-text-subtle span:nth-child(2)",
         (element) => element.innerHTML
       );
       return timeString?.includes("min") || timeString?.includes("t");
@@ -159,8 +143,9 @@ async function getToriData(page: Page, category: string): Promise<Auction[]> {
       const title = await getText("div h2 a", x);
       const href = await getHref("div h2 a", x);
       const url = href;
-      const timeText = await getText(".s-text-subtle span", x);
+      const timeText = await getText(".s-text-subtle span:nth-child(2)", x);
       const timeStamp = getToriTimeStamp(timeText);
+      console.log("teimStamp", timeStamp);
       const price = await getText(".font-bold", x);
 
       return {
