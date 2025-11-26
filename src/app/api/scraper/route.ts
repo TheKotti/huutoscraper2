@@ -6,6 +6,10 @@ import puppeteer, { Browser, ElementHandle, Page } from "puppeteer-core";
 
 chromium.setGraphicsMode = false;
 
+const remoteExecutablePath =
+  "https://github.com/Sparticuz/chromium/releases/download/v121.0.0/chromium-v121.0.0-pack.tar";
+let browser;
+
 type Auction = {
   title: string;
   url: string;
@@ -35,7 +39,8 @@ export async function POST(req: Request) {
     ],
     defaultViewport: { width: 1920, height: 1080 }, // Match window size
     executablePath:
-      process.env.CHROME_EXECUTABLE_PATH || (await chromium.executablePath()),
+      process.env.CHROME_EXECUTABLE_PATH ||
+      (await chromium.executablePath(remoteExecutablePath)),
   });
 
   const res: any = {};
