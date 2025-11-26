@@ -6,6 +6,14 @@ import puppeteer, { Browser, ElementHandle, Page } from "puppeteer-core";
 
 chromium.setGraphicsMode = false;
 
+type Auction = {
+  title: string;
+  url: string;
+  timeStamp: Moment;
+  price: string;
+  category: string;
+};
+
 export async function POST(req: Request) {
   const reqData = await req.json();
   const urls = reqData.urls.split("\n");
@@ -55,7 +63,7 @@ export async function POST(req: Request) {
 
   await browser.close();
 
-  const sorted = auctions.sort((a, b) =>
+  const sorted = auctions.sort((a: Auction, b: Auction) =>
     a.timeStamp.isBefore(b.timeStamp) ? 1 : -1
   );
 
@@ -79,7 +87,7 @@ const getToriTimeStamp = (timeText: string) => {
   }
 };
 
-async function getHuutoData(page: Page, category: string) {
+async function getHuutoData(page: Page, category: string): Promise<Auction[]> {
   const itemList = await page.$$(".item-card-container");
   console.log(itemList.length);
 
@@ -126,7 +134,7 @@ async function getHuutoData(page: Page, category: string) {
   return itemsData;
 }
 
-async function getToriData(page: Page, category: string) {
+async function getToriData(page: Page, category: string): Promise<Auction[]> {
   const itemList = await page.$$(".sf-search-ad");
 
   const filterResults = await Promise.all(
@@ -166,14 +174,14 @@ async function getToriData(page: Page, category: string) {
 const getText = async (sel: string, x: ElementHandle<Element>) => {
   const el = await x.$(sel);
   if (!el) return "";
-  const txt = await el.evaluate((e: any) => e.textContent?.trim() || "");
+  const txt = await el.evaluate((e: Element) => e.textContent?.trim() || "");
   return txt;
 };
 
 const getHref = async (sel: string, x: ElementHandle<Element>) => {
   const el = await x.$(sel);
   if (!el) return "";
-  const href = await el.evaluate((e: any) => e.getAttribute("href") || "");
+  const href = await el.evaluate((e: Element) => e.getAttribute("href") || "");
   return href;
 };
 
