@@ -28,6 +28,7 @@ async function getChromiumPath(): Promise<string> {
   if (!downloadPromise) {
     const chromium = (await import("@sparticuz/chromium-min")).default;
     chromium.setGraphicsMode = false;
+
     downloadPromise = chromium
       .executablePath(CHROMIUM_PACK_URL)
       .then((path) => {
@@ -51,10 +52,11 @@ async function getChromiumPath(): Promise<string> {
 export async function POST(req: NextRequest) {
   // Extract URL parameter from query string
   const reqData = await req.json();
-  const urls: string[] = reqData.urls.split("\n");
-  if (urls?.length === 0) {
+  if (reqData.urls.length === 0) {
     return new NextResponse("Please provide a URL.", { status: 400 });
   }
+
+  const urls: string[] = reqData.urls.split("\n");
 
   let browser;
 

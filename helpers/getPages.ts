@@ -54,7 +54,7 @@ export async function getHuutoData(
         "a > div > div.item-card__header > div.item-card__header-left > div.item-card__time > span > span",
         x,
       );
-      const timeStamp = moment(timeText, "DD.MM.YYYY HH:mm").add(2, "h");
+      const timeStamp = moment(timeText, "DD.MM.YYYY HH:mm");
       const price = await getText(
         "a div div.item-card__footer div.item-card__footer-column--right div.item-card__price",
         x,
@@ -63,7 +63,7 @@ export async function getHuutoData(
       return {
         title,
         url,
-        timeStamp,
+        timeStamp: timeStamp.toISOString(),
         price,
         category,
       };
@@ -98,7 +98,6 @@ export async function getToriData(
       const url = href;
       const timeText = await getText(".s-text-subtle span:nth-child(2)", x);
       const timeStamp = getToriTimeStamp(timeText);
-      console.log("teimStamp", timeStamp);
       const price = await getText(".font-bold", x);
 
       return {

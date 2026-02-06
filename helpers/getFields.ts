@@ -4,7 +4,7 @@ import { ElementHandle } from "puppeteer-core";
 
 export const getToriTimeStamp = (timeText: string) => {
   const timeNumber = timeText.match(/\d+/)?.[0] || 1;
-  const currentTime: Moment = moment().add(4, "h");
+  const currentTime: Moment = moment();
 
   if (timeText.includes("min")) {
     return currentTime.add(-timeNumber, "minute");
