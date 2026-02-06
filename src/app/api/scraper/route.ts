@@ -1,86 +1,126 @@
 import chromium from "@sparticuz/chromium-min";
-import { NextResponse } from "next/server";
-import puppeteer, { Page } from "puppeteer-core";
+import { NextRequest, NextResponse } from "next/server";
 import {
   createNewPage,
   getHuutoData,
   getToriData,
 } from "../../../../helpers/getPages";
 
-chromium.setGraphicsMode = false;
+// URL to the Chromium binary package hosted in /public, if not in production, use a fallback URL
+// alternatively, you can host the chromium-pack.tar file elsewhere and update the URL below
+const CHROMIUM_PACK_URL = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}/chromium-pack.tar`
+  : "https://github.com/gabenunez/puppeteer-on-vercel/raw/refs/heads/main/example/chromium-dont-use-in-prod.tar";
 
-const remoteExecutablePath =
-  "https://github.com/Sparticuz/chromium/releases/download/v121.0.0/chromium-v121.0.0-pack.tar";
-let browser;
+// Cache the Chromium executable path to avoid re-downloading on subsequent requests
+let cachedExecutablePath: string | null = null;
+let downloadPromise: Promise<string> | null = null;
 
-export async function POST(req: Request) {
-  const reqData = await req.json();
-  const urls = reqData.urls.split("\n");
+/**
+ * Downloads and caches the Chromium executable path.
+ * Uses a download promise to prevent concurrent downloads.
+ */
+async function getChromiumPath(): Promise<string> {
+  // Return cached path if available
+  if (cachedExecutablePath) return cachedExecutablePath;
 
-  // Optional: Load any fonts you need.
-  await chromium.font(
-    "https://raw.githack.com/googlei18n/noto-emoji/master/fonts/NotoColorEmoji.ttf",
-  );
-
-  const browser = await puppeteer.launch({
-    headless: true, // Use Chrome's new headless mode (harder to detect)
-    args: [
-      "--disable-blink-features=AutomationControlled", // Critical: Hides automation flag
-      "--no-sandbox", // Required for environments without Chrome sandbox (e.g., Docker)
-      "--disable-setuid-sandbox",
-      "--window-size=1920,1080", // Realistic viewport
-      "--lang=fi-FI",
-      "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-    ],
-    defaultViewport: { width: 1920, height: 1080 }, // Match window size
-    executablePath:
-      process.env.CHROME_EXECUTABLE_PATH ||
-      (await chromium.executablePath(remoteExecutablePath)),
-  });
-
-  const res: any = {};
-  const auctions: { [key: string]: Auction[] } = {};
-
-  let currentURL;
-
-  for (currentURL of urls) {
-    const page = await createNewPage(browser);
-    const [url, category] = currentURL.split(";");
-
-    await page.goto(url);
-
-    if (url.includes("tori.fi")) {
-      const data = await getToriData(page, category);
-      auctions[url] = data;
-    } else if (url.includes("huuto.net")) {
-      const data = await getHuutoData(page, category);
-      auctions[url] = data;
-    }
+  // Prevent concurrent downloads by reusing the same promise
+  if (!downloadPromise) {
+    const chromium = (await import("@sparticuz/chromium-min")).default;
+    chromium.setGraphicsMode = false;
+    downloadPromise = chromium
+      .executablePath(CHROMIUM_PACK_URL)
+      .then((path) => {
+        cachedExecutablePath = path;
+        console.log("Chromium path resolved:", path);
+        return path;
+      })
+      .catch((error) => {
+        console.error("Failed to get Chromium path:", error);
+        downloadPromise = null; // Reset on error to allow retry
+        throw error;
+      });
   }
 
-  await browser.close();
-
-  /* const sorted = auctions.sort((a: Auction, b: Auction) =>
-    a.timeStamp.isBefore(b.timeStamp) ? 1 : -1
-  ); */
-
-  return Response.json(auctions);
+  return downloadPromise;
 }
 
-async function returnScreenshot(page: Page) {
-  await page.goto(
-    "https://www.huuto.net/haku/sellernro_not/132641-2301946-1645317-2073413-2479878-2607731-1164405-25199-1645354-1532155/sort/newest/category/463",
-  );
-  const screenshot: Uint8Array<ArrayBufferLike> = await page.screenshot();
-  const buffer = Buffer.from(screenshot);
-  const ssBlob = new Blob([buffer], { type: "image/png" });
-  const response = new NextResponse(ssBlob, {
-    headers: {
-      "Content-Type": "image/png",
-      "Content-Disposition": "inline; filename=screenshot.png",
-    },
-    status: 200,
-  });
+/**
+ * API endpoint to scrape target urls
+ */
+export async function POST(req: NextRequest) {
+  // Extract URL parameter from query string
+  const reqData = await req.json();
+  const urls: string[] = reqData.urls.split("\n");
+  if (urls?.length === 0) {
+    return new NextResponse("Please provide a URL.", { status: 400 });
+  }
 
-  return response;
+  let browser;
+
+  try {
+    // Configure browser based on environment
+    const isVercel = !!process.env.VERCEL_ENV;
+    let puppeteer: any,
+      launchOptions: any = {
+        headless: true, // Use Chrome's new headless mode (harder to detect)
+        args: [
+          "--disable-blink-features=AutomationControlled", // Critical: Hides automation flag
+          "--no-sandbox", // Required for environments without Chrome sandbox (e.g., Docker)
+          "--disable-setuid-sandbox",
+          "--window-size=1920,1080", // Realistic viewport
+          "--lang=fi-FI",
+          "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        ],
+        defaultViewport: { width: 1920, height: 1080 }, // Match window size
+      };
+
+    if (isVercel) {
+      // Vercel: Use puppeteer-core with downloaded Chromium binary
+      puppeteer = await import("puppeteer-core");
+      const executablePath = await getChromiumPath();
+
+      launchOptions = {
+        ...launchOptions,
+        executablePath,
+      };
+      console.log("Launching browser with executable path:", executablePath);
+    } else {
+      // Local: Use regular puppeteer with bundled Chromium
+      puppeteer = await import("puppeteer");
+    }
+
+    // Launch browser and capture screenshot
+    browser = await puppeteer.launch(launchOptions);
+
+    const auctions: { [key: string]: Auction[] } = {};
+
+    for (let currentURL of urls) {
+      const page = await createNewPage(browser);
+      const [url, category] = currentURL.split(";");
+
+      (await page.goto(url), { waitUntil: "networkidle2" });
+
+      if (url.includes("tori.fi")) {
+        const data = await getToriData(page, category);
+        auctions[url] = data;
+      } else if (url.includes("huuto.net")) {
+        const data = await getHuutoData(page, category);
+        auctions[url] = data;
+      }
+    }
+
+    // Return the auctions
+    return Response.json(auctions);
+  } catch (error) {
+    console.error("Scraping error:", error);
+    return new NextResponse("An error occurred while scarping auctions.", {
+      status: 500,
+    });
+  } finally {
+    // Always clean up browser resources
+    if (browser) {
+      await browser.close();
+    }
+  }
 }
