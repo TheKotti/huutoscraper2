@@ -92,6 +92,7 @@ export async function POST(req: NextRequest) {
 
     // Launch browser and capture screenshot
     browser = await puppeteer.launch(launchOptions);
+    await delay(3000);
 
     const auctions: { [key: string]: Auction[] } = {};
 
@@ -100,6 +101,7 @@ export async function POST(req: NextRequest) {
       const [url, category] = currentURL.split(";");
 
       (await page.goto(url), { waitUntil: "networkidle2" });
+      await delay(3000);
 
       if (url.includes("tori.fi")) {
         const data = await getToriData(page, category);
@@ -108,6 +110,7 @@ export async function POST(req: NextRequest) {
         const data = await getHuutoData(page, category);
         auctions[url] = data;
       }
+      await delay(3000);
     }
 
     // Return the auctions
@@ -123,4 +126,8 @@ export async function POST(req: NextRequest) {
       await browser.close();
     }
   }
+}
+
+function delay(time: number) {
+  return new Promise((resolve) => setTimeout(resolve, time));
 }

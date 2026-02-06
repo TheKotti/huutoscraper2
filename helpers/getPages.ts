@@ -77,7 +77,6 @@ export async function getToriData(
   page: Page,
   category: string,
 ): Promise<Auction[]> {
-  return [];
   const itemList = await page.$$(".sf-search-ad");
 
   const filterResults = await Promise.all(
