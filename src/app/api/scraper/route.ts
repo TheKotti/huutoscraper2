@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
   } finally {
     // Always clean up browser resources
     if (browser) {
-      await browser.close();
+      //await browser.close();
     }
   }
 }
