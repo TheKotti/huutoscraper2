@@ -19,6 +19,7 @@
     "react-dom": "19.2.0"
   },
   "devDependencies": {
+    "@sparticuz/chromium": "^141.0.0",
     "@tailwindcss/postcss": "^4",
     "@types/lodash": "^4.17.21",
     "@types/node": "^20",

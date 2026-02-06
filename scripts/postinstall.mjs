@@ -14,7 +14,7 @@ async function main() {
     const chromiumResolvedPath = import.meta.resolve("@sparticuz/chromium");
 
     // Convert file:// URL to regular path
-    const chromiumPath = fileURLToPath(chromiumResolvedPath);
+    const chromiumPath = chromiumResolvedPath.replace(/^file:\/\//, "");
 
     // Get the package root directory (goes up from build/esm/index.js to package root)
     const chromiumDir = dirname(dirname(dirname(chromiumPath)));
