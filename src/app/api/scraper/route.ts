@@ -80,21 +80,15 @@ export async function POST(req: NextRequest) {
     if (isVercel) {
       // Vercel: Use puppeteer-core with downloaded Chromium binary
       puppeteer = await import("puppeteer-core");
-      const executablePath = await getChromiumPath();
-
-      launchOptions = {
-        ...launchOptions,
-        executablePath,
-      };
-      console.log("Launching browser with executable path:", executablePath);
+      browser = await puppeteer.connect({
+        browserWSEndpoint: process.env.BROWSERLESS_TOKEN,
+      });
     } else {
       // Local: Use regular puppeteer with bundled Chromium
       puppeteer = await import("puppeteer");
+      // Launch browser
+      browser = await puppeteer.launch(launchOptions);
     }
-
-    // Launch browser and capture screenshot
-    browser = await puppeteer.launch(launchOptions);
-    await delay(1000);
 
     const auctions: { [key: string]: Auction[] } = {};
 
@@ -103,7 +97,6 @@ export async function POST(req: NextRequest) {
       const [url, category] = currentURL.split(";");
 
       (await page.goto(url), { waitUntil: "networkidle2" });
-      await delay(1000);
 
       if (url.includes("tori.fi")) {
         const data = await getToriData(page, category);
@@ -112,7 +105,6 @@ export async function POST(req: NextRequest) {
         const data = await getHuutoData(page, category);
         auctions[url] = data;
       }
-      await delay(1000);
     }
 
     // Return the auctions
