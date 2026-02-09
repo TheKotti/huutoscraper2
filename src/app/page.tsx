@@ -99,7 +99,9 @@ export default function Home() {
                           />
                         </span>
                       </td>
-                      <td className="px-3 text-center">{x.price}</td>
+                      <td className="px-3 text-center text-nowrap">
+                        {x.price}
+                      </td>
                       <td className="px-3">
                         <a href={x.url} target="_blank">
                           {x.title}
