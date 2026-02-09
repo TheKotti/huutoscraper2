@@ -15,9 +15,8 @@ export default function Home() {
   const [scrapingStarted, setScrapingStarted] = useState(false);
 
   const scrape = useCallback(async () => {
-    console.info("Scraping...");
-
     if (scrapingStarted) {
+      console.info("Scraping...");
       const scraped = await fetch("/api/scraper", {
         method: "POST",
         body: JSON.stringify({ urls }),
@@ -73,19 +72,32 @@ export default function Home() {
           <table>
             <tbody>
               {auctions
-                .sort((a, b) => (a.timeStamp < b.timeStamp ? 1 : -1))
+                .sort((a, b) => {
+                  const ta = Math.floor(
+                    new Date(a.timeStamp).getTime() / 60000,
+                  );
+                  const tb = Math.floor(
+                    new Date(b.timeStamp).getTime() / 60000,
+                  );
+                  if (ta !== tb) return tb - ta;
+                  return (a.title || "").localeCompare(b.title || "");
+                })
                 .map((x) => {
                   return (
                     <tr key={x.url} className="h-8">
                       <td className="px-3">
                         {moment(x.timeStamp).format("HH:mm")}
                       </td>
-                      <td className="px-3 flex items-center justify-center">
-                        <img
-                          className="max-h-5"
-                          alt={x.category}
-                          src={`/${x.category}.png`}
-                        />
+                      <td className="px-3">
+                        <span className="flex w-4 items-center justify-center">
+                          <img
+                            className="max-h-5"
+                            alt={x.category}
+                            src={
+                              x.category ? `/${x.category}.png` : "/other.png"
+                            }
+                          />
+                        </span>
                       </td>
                       <td className="px-3 text-center">{x.price}</td>
                       <td className="px-3">
