@@ -1,3 +1,5 @@
+/* eslint-disable @next/next/no-img-element */
+/* ^ This app is for local use, img bandwidth doesn't matter */
 "use client";
 
 import { useNextQueryParams } from "@/hooks/useNextQueryParams";
@@ -10,22 +12,26 @@ export default function Home() {
   });
   const [auctions, setAuctions] = useState<Auction[]>([]);
   const [urls, setUrls] = useState<string>(initialParams.get("urls") || "");
+  const [scrapingStarted, setScrapingStarted] = useState(false);
 
-  const goScraping = useCallback(async () => {
-    console.log("click");
-    const scraped = await fetch("/api/scraper", {
-      method: "POST",
-      body: JSON.stringify({ urls }),
-    }).then((r) => r.json());
+  const scrape = useCallback(async () => {
+    console.info("Scraping...");
 
-    const all: Auction[] = [];
+    if (scrapingStarted) {
+      const scraped = await fetch("/api/scraper", {
+        method: "POST",
+        body: JSON.stringify({ urls }),
+      }).then((r) => r.json());
 
-    for (const value of Object.values(scraped)) {
-      all.push(...(value as Auction[]));
+      const all: Auction[] = [];
+
+      for (const value of Object.values(scraped)) {
+        all.push(...(value as Auction[]));
+      }
+
+      setAuctions(all);
     }
-
-    setAuctions(all);
-  }, [urls]);
+  }, [scrapingStarted, urls]);
 
   const handleUrlChange = (value: string) => {
     setUrls(value);
@@ -33,16 +39,16 @@ export default function Home() {
   };
 
   useEffect(() => {
-    const scrape = async () => {
-      goScraping();
+    const runScrape = async () => {
+      scrape();
     };
 
-    scrape();
+    runScrape();
     const intervalId = setInterval(() => {
-      scrape();
+      runScrape();
     }, 60000);
     return () => clearInterval(intervalId);
-  }, [urls]);
+  }, [scrape, urls]);
 
   return (
     <main className="hero bg-base-200 min-h-screen p-4">
@@ -58,7 +64,7 @@ export default function Home() {
           <p className="mb-6">
             <button
               className="cursor-pointer p-2 bg-blue-600 border border-blue-800"
-              onClick={goScraping}
+              onClick={() => setScrapingStarted(true)}
             >
               Scrape
             </button>
@@ -75,7 +81,11 @@ export default function Home() {
                         {moment(x.timeStamp).format("HH:mm")}
                       </td>
                       <td className="px-3 flex items-center justify-center">
-                        <img className="max-h-5" src={`/${x.category}.png`} />
+                        <img
+                          className="max-h-5"
+                          alt={x.category}
+                          src={`/${x.category}.png`}
+                        />
                       </td>
                       <td className="px-3 text-center">{x.price}</td>
                       <td className="px-3">
